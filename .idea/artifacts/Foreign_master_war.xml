@@ -1,0 +1,19 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="Foreign-master:war">
+    <output-path>$PROJECT_DIR$/out/artifacts/Foreign_master_war</output-path>
+    <properties id="ant-preprocessing">
+      <options enabled="true" />
+    </properties>
+    <root id="archive" name="Foreign-master_war.war">
+      <element id="directory" name="WEB-INF">
+        <element id="directory" name="lib">
+          <element id="library" level="project" name="lib" />
+        </element>
+        <element id="directory" name="classes">
+          <element id="module-output" name="Foreign-master" />
+        </element>
+      </element>
+      <element id="javaee-facet-resources" facet="Foreign-master/web/Web" />
+    </root>
+  </artifact>
+</component>

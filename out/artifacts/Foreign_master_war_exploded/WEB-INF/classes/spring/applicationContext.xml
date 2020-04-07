@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+						http://www.springframework.org/schema/beans/spring-beans-3.1.xsd 
+						http://www.springframework.org/schema/tx 
+						http://www.springframework.org/schema/tx/spring-tx.xsd
+						http://www.springframework.org/schema/context
+						http://www.springframework.org/schema/context/spring-context.xsd
+						http://www.springframework.org/schema/aop
+						http://www.springframework.org/schema/aop/spring-aop.xsd">
+	
+	<!-- 包扫描 -->
+	<context:component-scan base-package="com.lpa">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+	</context:component-scan>
+
+	<!-- 引入数据库资源文件 -->
+	<bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="location" value="classpath:properties/database.properties" />
+	</bean>
+
+	<!-- 配置数据源 -->
+	<bean id="dataSource"
+		  class="org.apache.commons.dbcp2.BasicDataSource">
+		<property name="driverClassName" value="${driverClassName}"></property>
+		<property name="url" value="${url}"></property>
+		<property name="username" value="${userName}"></property>
+		<property name="password" value="${password}"></property>
+	</bean>
+
+	<!-- AOP -->
+	<aop:aspectj-autoproxy/>
+
+	<!-- 配置 hibernate session -->
+	<bean id="sessionFactory"
+		  class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+		<property name="dataSource" ref="dataSource"/>
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+				<prop key="hibernate.hbm2ddl.auto">update</prop>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.format_sql">true</prop>
+
+				<prop key="hibernate.cache.use_second_level_cache">false</prop>
+				<prop key="hibernate.cache.use_query_cache">false</prop>
+				<prop key="current_session_context_class">thread</prop>
+				<prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate4.SpringSessionContext</prop>
+			</props>
+		</property>
+		<property name="packagesToScan">
+			<list>
+				<value>com.lpa.entity</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- 配置事务管理器 -->
+	<bean id="transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+
+	<!--注意！如果service目录变了，需要改这里的内容，否则会报错-->
+	<aop:config proxy-target-class="true">
+		<aop:advisor pointcut="execution(public * com.lpa.service.*Service.*(..))" advice-ref="txAdvice"/>
+	</aop:config>
+
+	<tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true"/>
+
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="get*" read-only="true" propagation="REQUIRED"/>
+			<tx:method name="list*" read-only="true" propagation="REQUIRED"/>
+			<tx:method name="find*" read-only="true" propagation="REQUIRED"/>
+			<tx:method name="save*" propagation="REQUIRED" />
+			<tx:method name="delete*" propagation="REQUIRED" />
+			<tx:method name="update*" propagation="REQUIRED" />
+			<tx:method name="add*" propagation="REQUIRED" />
+			<tx:method name="*" propagation="REQUIRED" rollback-for="Exception"/>
+		</tx:attributes>
+	</tx:advice>
+
+
+	<!-- 配置shiro，id要与web.xml文件中的filter名称相同 -->
+	<bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+		<property name="securityManager" ref="securityManager"/>
+		<!-- override these for application-specific URLs if you like: <property
+            name="loginUrl" value="/login.jsp"/> <property name="successUrl" value="/home.jsp"/>
+            <property name="unauthorizedUrl" value="/unauthorized.jsp"/> -->
+		<!-- 这些filters可以不配置，因为可以声明任何javax.servlet.Filter bean来代替 -->
+		<!-- <property name="loginUrl" value="/login.jsp"></property> -->
+		<property name="loginUrl" value="/login"></property>
+		<property name="unauthorizedUrl" value="/unauthorized.jsp"/>
+		<!-- defined will be automatically acquired and available via its beanName
+            in chain -->
+		<!-- definitions, but you can perform instance overrides or name aliases
+            here if you like: -->
+		<!-- <property name="filters"> <util:map> <entry key="anAlias" value-ref="someFilter"/>
+            </util:map> </property> -->
+		<!-- 配置filterChainDefinitionMap来代替filterChainDefinitions -->
+		<property name="filterChainDefinitionMap" ref="filterChainDefinitionMap"></property>
+		<!-- <property name="filterChainDefinitions"> -->
+		<!-- <value> -->
+		<!-- /login=anon -->
+		<!-- /register=anon -->
+		<!-- /index.jsp=anon -->
+		<!-- /register.jsp=anon -->
+		<!-- /login.jsp=anon -->
+		<!-- /logout=logout -->
+		<!-- /user.jsp=authc,roles[user] -->
+		<!-- /admin.jsp=authc,roles[admin] -->
+		<!-- /root.jsp=authc,roles[root] -->
+		<!-- /** = authc -->
+		<!-- </value> -->
+		<!-- </property> -->
+	</bean>
+	<bean id="filterChainDefinitionMap" factory-bean="filterChainDefinitionMapBuilder"
+		  factory-method="bulidFilterChainDefinitionMap"></bean>
+	<bean id="filterChainDefinitionMapBuilder" class="com.lpa.utils.FilterChainDefinitionMapBuilder"></bean>
+
+	<bean id="adminRealm" class="com.lpa.realm.AdminRealm">
+		<property name="credentialsMatcher">
+			<bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+				<property name="hashAlgorithmName" value="MD5"></property>
+				<property name="hashIterations" value="1024"></property>
+			</bean>
+		</property>
+	</bean>
+	<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<!-- 当需要使用多种验证策略时，需要配置，默认是一种 -->
+		<!-- <property name="authenticator" ref="authenticator"></property> -->
+		<!-- Single realm app. If you have multiple realms, use the 'realms' property
+            instead. -->
+		<property name="realm" ref="adminRealm"/>
+		<!-- By default the servlet container sessions will be used. Uncomment
+            this line to use shiro's native sessions (see the JavaDoc for more): -->
+		<!-- <property name="sessionMode" value="native"/> -->
+	</bean>
+	<!-- <bean id="authenticator" class="org.apache.shiro.authc.pam.ModularRealmAuthenticator">
+        <property name="authenticationStrategy"> <bean class="org.apache.shiro.authc.pam.AtLeastOneSuccessfulStrategy"></bean>
+        </property> </bean> -->
+	<!-- 配置LifecycleBeanPostProcessor，可以自定义配置在SpringIOC容器中Shiro的生命周期 -->
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+
+	<!-- 启用Shiro注解（例如@RequiresRoles,@RequiresPermissions），但要在配置了LifecycleBeanPostProcessor之后才能使用 -->
+	<bean
+			class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+			depends-on="lifecycleBeanPostProcessor"/>
+	<bean
+			class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+		<property name="securityManager" ref="securityManager"/>
+	</bean>
+   </beans>

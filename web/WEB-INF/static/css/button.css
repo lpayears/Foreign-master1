@@ -1,0 +1,23 @@
+.kaoyou {
+    float: right;
+}
+
+.form-control {
+    width: 80% !important;
+}
+
+.task-yesorno {
+    width: 8% !important;
+}
+
+.th {
+    text-align: center;
+}
+
+.select-width {
+    width: 5%;
+}
+
+.div-inline {
+    display: inline;
+}
